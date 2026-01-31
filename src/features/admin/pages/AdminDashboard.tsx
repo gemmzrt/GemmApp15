@@ -5,7 +5,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Invite, Segment, Profile, RSVP, TableAssignment } from '../../../types';
 import toast from 'react-hot-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Download, RefreshCw } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'INVITES' | 'TABLES'>('INVITES');
@@ -29,8 +29,14 @@ export const AdminDashboard: React.FC = () => {
 
 const InvitesManager = () => {
   const queryClient = useQueryClient();
+  
+  // Single Create State
   const [newCode, setNewCode] = useState('');
   const [segment, setSegment] = useState<Segment>('YOUNG');
+
+  // Bulk Create State
+  const [bulkYoung, setBulkYoung] = useState(0);
+  const [bulkAdult, setBulkAdult] = useState(0);
 
   const { data: invites, isLoading } = useQuery({
     queryKey: ['admin-invites'],
@@ -41,6 +47,7 @@ const InvitesManager = () => {
     }
   });
 
+  // Single Manual Create
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!supabase) throw new Error("DB Disconnected");
@@ -60,13 +67,62 @@ const InvitesManager = () => {
     onError: (err: Error) => toast.error(err.message)
   });
 
+  // Bulk Generate RPC
+  const bulkMutation = useMutation({
+    mutationFn: async () => {
+      if (!supabase) throw new Error("DB Disconnected");
+      // Call the new RPC
+      const { data, error } = await supabase.rpc('admin_generate_invites', {
+        young_count: Number(bulkYoung),
+        adult_count: Number(bulkAdult)
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      setBulkYoung(0);
+      setBulkAdult(0);
+      queryClient.invalidateQueries({ queryKey: ['admin-invites'] });
+      toast.success(`Generated ${data ? data.length : 'some'} codes!`);
+    },
+    onError: (err: Error) => toast.error(err.message)
+  });
+
   return (
     <div className="space-y-6">
-      <div className="bg-white p-4 rounded-lg shadow space-y-4">
-        <h3 className="font-bold">Create Invite</h3>
+      
+      {/* Bulk Generator */}
+      <div className="bg-white p-6 rounded-lg shadow border border-brand-100">
+        <h3 className="font-bold mb-4 flex items-center gap-2">
+          <RefreshCw className="w-4 h-4 text-brand-500" /> 
+          Bulk Generator
+        </h3>
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="w-32">
+             <label className="text-xs font-bold text-gray-500">Young Qty</label>
+             <Input type="number" min="0" value={bulkYoung} onChange={e => setBulkYoung(Number(e.target.value))} />
+          </div>
+          <div className="w-32">
+             <label className="text-xs font-bold text-gray-500">Adult Qty</label>
+             <Input type="number" min="0" value={bulkAdult} onChange={e => setBulkAdult(Number(e.target.value))} />
+          </div>
+          <Button 
+            onClick={() => bulkMutation.mutate()} 
+            isLoading={bulkMutation.isPending}
+            disabled={bulkYoung === 0 && bulkAdult === 0}
+          >
+            Generate Codes
+          </Button>
+        </div>
+        <p className="text-xs text-gray-400 mt-2">Codes will be generated with random suffix (e.g. G15-Y-A1B2C3)</p>
+      </div>
+
+      {/* Manual Create */}
+      <div className="bg-white p-4 rounded-lg shadow space-y-4 opacity-75">
+        <h3 className="font-bold text-sm">Manual Single Create</h3>
         <div className="flex gap-4">
           <Input 
-            placeholder="Code (e.g. FRIEND-1)" 
+            placeholder="Custom Code (e.g. VIP-JUAN)" 
             value={newCode} 
             onChange={e => setNewCode(e.target.value)} 
           />
@@ -82,6 +138,7 @@ const InvitesManager = () => {
         </div>
       </div>
 
+      {/* List */}
       <div className="bg-white p-4 rounded-lg shadow overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
@@ -96,7 +153,7 @@ const InvitesManager = () => {
             {isLoading && <tr><td colSpan={4} className="p-4 text-center"><Loader2 className="animate-spin inline"/></td></tr>}
             {invites?.map(inv => (
               <tr key={inv.code} className="border-b last:border-0 hover:bg-gray-50">
-                <td className="p-2 font-mono font-bold">{inv.code}</td>
+                <td className="p-2 font-mono font-bold select-all cursor-pointer">{inv.code}</td>
                 <td className="p-2">{inv.segment}</td>
                 <td className="p-2">
                   <span className={`px-2 py-1 rounded text-xs ${inv.is_used ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
@@ -124,7 +181,6 @@ const TableManager = () => {
     queryKey: ['admin-users'],
     queryFn: async () => {
       if (!supabase) return [];
-      // Manual join because supabase types in generic client can be tricky with deeply nested joins
       const { data: profiles } = await supabase.from('profiles').select('*');
       const { data: rsvps } = await supabase.from('rsvps').select('*');
       const { data: tables } = await supabase.from('table_assignments').select('*');

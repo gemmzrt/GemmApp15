@@ -19,7 +19,7 @@ const profileSchema = z.object({
 type ProfileForm = z.infer<typeof profileSchema>;
 
 export const ProfileSetup: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   
@@ -31,22 +31,24 @@ export const ProfileSetup: React.FC = () => {
   });
 
   const mutation = useMutation({
-    mutationFn: (data: ProfileForm) => {
+    mutationFn: async (data: ProfileForm) => {
       if (!user) throw new Error("No authenticated user found");
-      // Include email in case we are creating the row from scratch via upsert
+      // Clean update: Only basic info, Primary Key is user.id
       return updateProfile(user.id, {
-        ...data,
-        email: user.email || '' 
+        first_name: data.first_name,
+        last_name: data.last_name,
+        is_celiac: data.is_celiac,
+        // We do NOT touch role, segment or email here
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await refreshProfile(); // Update context immediately
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       toast.success("Profile saved!");
       navigate('/');
     },
     onError: (err: any) => {
       console.error("Profile save failed:", err);
-      // Show the ACTUAL error message to allow debugging
       toast.error(`Error: ${err.message || 'Could not save profile'}`);
     }
   });
@@ -82,7 +84,7 @@ export const ProfileSetup: React.FC = () => {
           </div>
 
           <Button type="submit" className="w-full" isLoading={isSubmitting}>
-            Save & Continue
+            Save & Enter
           </Button>
         </form>
       </div>

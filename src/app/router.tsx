@@ -14,9 +14,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-brand-500"/></div>;
   
-  if (!user) return <Navigate to="/login" replace />;
+  // If no user (shouldn't happen with anon auth) or NO PROFILE (hasn't claimed code), go to login
+  if (!user || !profile) {
+      return <Navigate to="/login" replace />;
+  }
   
-  // Force profile setup if missing names
+  // Force profile setup if missing names (claimed code but didn't finish setup)
   if ((!profile?.first_name || !profile?.last_name) && window.location.hash !== '#/profile-setup') {
     return <Navigate to="/profile-setup" replace />;
   }
@@ -39,6 +42,7 @@ export const AppRouter: React.FC = () => {
       <AuthProvider>
         <HashRouter>
           <Routes>
+            {/* The InviteGate handles the "Code Entry". It works even if user is Anon. */}
             <Route path="/login" element={<InviteGate />} />
             <Route path="/debug" element={<Debug />} />
             

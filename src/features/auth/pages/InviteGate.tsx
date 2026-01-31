@@ -1,52 +1,42 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
-import { sendMagicLink } from '../api';
+import { claimInviteCode } from '../api';
+import { useAuth } from '../../../app/providers';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
-// Step 1: Validate Invite Code Format (simple non-empty check for now)
 const codeSchema = z.object({
   code: z.string().min(3, "Code is too short"),
 });
 
-// Step 2: Validate Email
-const emailSchema = z.object({
-  email: z.string().email("Invalid email address"),
-});
-
 type CodeForm = z.infer<typeof codeSchema>;
-type EmailForm = z.infer<typeof emailSchema>;
 
 export const InviteGate: React.FC = () => {
-  const [step, setStep] = useState<'CODE' | 'EMAIL' | 'SENT'>('CODE');
-  const [inviteCode, setInviteCode] = useState('');
+  const { refreshProfile } = useAuth();
+  const navigate = useNavigate();
 
-  const { register: registerCode, handleSubmit: handleCodeSubmit, formState: { errors: codeErrors } } = useForm<CodeForm>({
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<CodeForm>({
     resolver: zodResolver(codeSchema)
   });
 
-  const { register: registerEmail, handleSubmit: handleEmailSubmit, formState: { errors: emailErrors, isSubmitting: isEmailSubmitting } } = useForm<EmailForm>({
-    resolver: zodResolver(emailSchema)
-  });
-
-  const onCodeSubmit = (data: CodeForm) => {
-    setInviteCode(data.code);
-    // Store code in sessionStorage to claim after login
-    sessionStorage.setItem('pending_invite_code', data.code);
-    setStep('EMAIL');
-  };
-
-  const onEmailSubmit = async (data: EmailForm) => {
+  const onCodeSubmit = async (data: CodeForm) => {
     try {
-      await sendMagicLink(data.email);
-      setStep('SENT');
-      toast.success("Magic link sent!");
+      await claimInviteCode(data.code);
+      toast.success("Welcome!");
+      
+      // Refresh profile to update Context state (role, segment)
+      await refreshProfile();
+      
+      // Navigation handled by ProtectedRoute, but we can push just in case
+      navigate('/');
     } catch (err: any) {
-      toast.error(err.message || "Failed to send link");
+      console.error(err);
+      toast.error(err.message || "Invalid or used code");
     }
   };
 
@@ -55,75 +45,29 @@ export const InviteGate: React.FC = () => {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Gemma 15</h1>
-          <p className="text-gray-500">Welcome to the celebration</p>
+          <p className="text-gray-500">Enter your invite code to join</p>
         </div>
 
-        <AnimatePresence mode="wait">
-          {step === 'CODE' && (
-            <motion.form 
-              key="code-form"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              onSubmit={handleCodeSubmit(onCodeSubmit)} 
-              className="space-y-4"
-            >
-              <Input 
-                label="Invite Code" 
-                placeholder="ENTER-CODE" 
-                {...registerCode('code')}
-                error={codeErrors.code?.message}
-                autoFocus
-              />
-              <Button type="submit" className="w-full">
-                Verify Code
-              </Button>
-            </motion.form>
-          )}
-
-          {step === 'EMAIL' && (
-            <motion.form 
-              key="email-form"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              onSubmit={handleEmailSubmit(onEmailSubmit)} 
-              className="space-y-4"
-            >
-              <div className="bg-gray-50 p-3 rounded text-sm text-gray-600 mb-4">
-                Code applied: <span className="font-mono font-bold">{inviteCode}</span>
-                <button type="button" onClick={() => setStep('CODE')} className="ml-2 text-brand-500 hover:underline">Change</button>
-              </div>
-              <Input 
-                label="Email Address" 
-                placeholder="you@example.com" 
-                type="email"
-                {...registerEmail('email')}
-                error={emailErrors.email?.message}
-                autoFocus
-              />
-              <Button type="submit" className="w-full" isLoading={isEmailSubmitting}>
-                Send Magic Link
-              </Button>
-            </motion.form>
-          )}
-
-          {step === 'SENT' && (
-            <motion.div
-              key="sent-msg"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center space-y-4"
-            >
-              <div className="text-5xl">📧</div>
-              <h2 className="text-xl font-semibold">Check your email</h2>
-              <p className="text-gray-600">
-                We sent a magic link to verify your account. 
-                Click it to enter the app.
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <motion.form 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          onSubmit={handleSubmit(onCodeSubmit)} 
+          className="space-y-4"
+        >
+          <Input 
+            label="Invite Code" 
+            placeholder="e.g. G15-Y-12345" 
+            {...register('code')}
+            error={errors.code?.message}
+            autoFocus
+          />
+          <Button type="submit" className="w-full" isLoading={isSubmitting}>
+            Enter Party
+          </Button>
+          <p className="text-xs text-center text-gray-400 mt-4">
+            No email required. Just the code.
+          </p>
+        </motion.form>
       </div>
     </div>
   );
