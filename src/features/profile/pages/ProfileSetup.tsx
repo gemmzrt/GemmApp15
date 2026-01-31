@@ -32,16 +32,22 @@ export const ProfileSetup: React.FC = () => {
 
   const mutation = useMutation({
     mutationFn: (data: ProfileForm) => {
-      if (!user) throw new Error("No user");
-      return updateProfile(user.id, data);
+      if (!user) throw new Error("No authenticated user found");
+      // Include email in case we are creating the row from scratch via upsert
+      return updateProfile(user.id, {
+        ...data,
+        email: user.email || '' 
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       toast.success("Profile saved!");
       navigate('/');
     },
-    onError: () => {
-      toast.error("Failed to save profile");
+    onError: (err: any) => {
+      console.error("Profile save failed:", err);
+      // Show the ACTUAL error message to allow debugging
+      toast.error(`Error: ${err.message || 'Could not save profile'}`);
     }
   });
 

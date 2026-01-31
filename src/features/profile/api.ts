@@ -20,13 +20,27 @@ export const getProfile = async (userId: string): Promise<Profile | null> => {
 export const updateProfile = async (userId: string, updates: Partial<Profile>) => {
   if (!supabase) throw new Error("DB not connected");
 
+  console.log("[Profile] Attempting save for:", userId, updates);
+
+  // HOTFIX: Use upsert instead of update. 
+  // If the profile row is missing (trigger failed), this will create it.
   const { data, error } = await supabase
     .from('profiles')
-    .update(updates)
-    .eq('user_id', userId)
+    .upsert({ 
+      user_id: userId,
+      ...updates 
+    })
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("[Profile] Supabase Error:", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint
+    });
+    throw error;
+  }
   return data;
 };
