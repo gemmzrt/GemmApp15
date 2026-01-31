@@ -5,8 +5,6 @@ const envSchema = z.object({
   VITE_SUPABASE_ANON_KEY: z.string().min(1),
 });
 
-type EnvConfig = z.infer<typeof envSchema>;
-
 const processEnv = {
   VITE_SUPABASE_URL: (import.meta as any).env.VITE_SUPABASE_URL,
   VITE_SUPABASE_ANON_KEY: (import.meta as any).env.VITE_SUPABASE_ANON_KEY,

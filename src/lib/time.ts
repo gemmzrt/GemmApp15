@@ -1,5 +1,5 @@
 import { toZonedTime, format } from 'date-fns-tz';
-import { differenceInMinutes, isBefore, isAfter, addDays, set } from 'date-fns';
+import { differenceInMinutes, addDays, set } from 'date-fns';
 import { Segment } from '../types';
 
 const EVENT_TZ = 'America/Argentina/Buenos_Aires';
