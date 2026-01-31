@@ -28,7 +28,8 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
     queryKey: ['db-health'],
     queryFn: async () => {
       if (!supabase) throw new Error("Client not initialized");
-      const { data, error } = await supabase.from('event_config').select('id').eq('id', 1).single();
+      // Use maybeSingle() to avoid error if table is empty or row 1 doesn't exist yet
+      const { data, error } = await supabase.from('event_config').select('id').eq('id', 1).maybeSingle();
       if (error) throw error;
       return data;
     },

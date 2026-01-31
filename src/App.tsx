@@ -1,5 +1,6 @@
 import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/query-core';
 import { AppRouter } from './app/router';
 import { Toaster } from 'react-hot-toast';
 
