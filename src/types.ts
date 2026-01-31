@@ -4,7 +4,7 @@ export type RSVPStatus = 'CONFIRMED' | 'DECLINED' | 'PENDING';
 
 export interface Profile {
   user_id: string;
-  email: string;
+  email: string | null; // Changed to nullable for Anonymous Auth
   first_name: string | null;
   last_name: string | null;
   segment: Segment | null;
